@@ -1,63 +1,94 @@
-# Laboratory Project for CMSC 165 A.Y. 2023-2024
-# Authors: 1. Nagano, Tyrone Frederik
-#          2. Wallit, Zyrus Matthew
-#          3. Sunga, Rafael
-
 import cv2
-import numpy as np
+import pygame
+from pygame.locals import *
+from tkinter import Tk, filedialog
+from PIL import Image
+from io import BytesIO
 
-# Load YOLO
-net = cv2.dnn.readNet("data/yolov4.weights", "data/yolov4.cfg")
-layer_names = net.getUnconnectedOutLayersNames()
+class BagAlertApp:
+    def __init__(self):
+        self.resolution = (1200, 700)
+        self.main_interface()
 
-# Load COCO class names
-with open("data/coco.names", "r") as f:
-    classes = [line.strip() for line in f.readlines()]
+    def main_interface(self):
+        pygame.init()
+        self.screen = pygame.display.set_mode(self.resolution)
+        pygame.display.set_caption("Bag Alert")
 
-# Initialize webcam
-cap = cv2.VideoCapture(0)
+        font = pygame.font.Font(None, 36)
 
-while True:
-    # Read frame from webcam/video input
-    _, frame = cap.read()
+        video_sample_button = pygame.Rect(400, 200, 400, 100)
+        live_feed_button = pygame.Rect(400, 350, 400, 100)
 
-    # Detect objects from frame
-    height, width, _ = frame.shape
-    blob = cv2.dnn.blobFromImage(frame, 1/255.0, (416,416), swapRB=True, crop=False)
-    net.setInput(blob)
-    detections = net.forward(layer_names)
+        while True:
+            for event in pygame.event.get():
+                if event.type == QUIT:
+                    pygame.quit()
+                    return
+                elif event.type == MOUSEBUTTONDOWN:
+                    if video_sample_button.collidepoint(event.pos):
+                        pygame.quit()
+                        self.show_video_sample()
+                        self.main_interface()
+                    elif live_feed_button.collidepoint(event.pos):
+                        pygame.quit()
+                        self.show_live_feed()
+                        self.main_interface()
+
+            self.screen.fill((255, 255, 255))
+
+            pygame.draw.rect(self.screen, (0, 128, 255), video_sample_button)
+            pygame.draw.rect(self.screen, (0, 128, 255), live_feed_button)
+
+            text = font.render("Video Sample", True, (255, 255, 255))
+            self.screen.blit(text, (500, 240))
+
+            text = font.render("Live Feed", True, (255, 255, 255))
+            self.screen.blit(text, (530, 390))
+
+            pygame.display.flip()
+
+    def show_video_sample(self):
+        root = Tk()
+        root.withdraw()
+        file_path = filedialog.askopenfilename(filetypes=[("MP4 files", "*.mp4")])
+        cap = cv2.VideoCapture(file_path)
+        self.display_video(cap)
+
+    def show_live_feed(self):
+        cap = cv2.VideoCapture(0)
+        self.display_video(cap)
+
+    def display_video(self, cap):
+        pygame.init()
+        screen = pygame.display.set_mode(self.resolution)
+        pygame.display.set_caption("Video Sample")
+
+        clock = pygame.time.Clock()
+
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+
+            frame = cv2.resize(frame, self.resolution)
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            image = Image.fromarray(frame)
+            image = pygame.image.fromstring(image.tobytes(), image.size, image.mode)
+
+            screen.blit(image, (0, 0))
+            pygame.display.flip()
+
+            clock.tick(30)
+
+            for event in pygame.event.get():
+                if event.type == QUIT:
+                    pygame.quit()
+                    cap.release()
+                    return
+
+        cap.release()
 
 
-    # Process detections
-    for detection in detections:
-        for obj in detection:
-            scores = obj[5:]
-            class_id = np.argmax(scores)
-            confidence = scores[class_id]
-            if confidence > 0.5:
-                center_x = int(obj[0] * width)
-                center_y = int(obj[1] * height)
-                w = int(obj[2] * width)
-                h = int(obj[3] * height)
-
-                # Rectangle coordinates
-                x = int(center_x - w/2)
-                y = int(center_y - h/2)
-
-                # Draw rectangle and label
-                color = (0,255,0)
-                cv2.rectangle(frame, (x,y), (x+w, y+h), color, 2)
-                label = f"{classes[class_id]}: {confidence:.2f}"
-                cv2.putText(frame, label, (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
-
-    # Display output
-    cv2.imshow("Object Detection", frame)
-
-
-
-    if cv2.waitKey(1) == ord('q'):
-        break
-    
-# Release webcam and close all the windows
-cap.release()
-cv2.destroyAllWindows()
+if __name__ == "__main__":
+    app = BagAlertApp()
