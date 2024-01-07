@@ -27,7 +27,8 @@ while True:
     net.setInput(blob)
     detections = net.forward(layer_names)
 
-
+    confidences = []
+    boxes = []
     # Process detections
     for detection in detections:
         for obj in detection:
@@ -43,12 +44,21 @@ while True:
                 # Rectangle coordinates
                 x = int(center_x - w/2)
                 y = int(center_y - h/2)
+                boxes.append((x,y,w,h))
+                confidences.append(float(confidence))
 
-                # Draw rectangle and label
-                color = (0,255,0)
-                cv2.rectangle(frame, (x,y), (x+w, y+h), color, 2)
-                label = f"{classes[class_id]}: {confidence:.2f}"
-                cv2.putText(frame, label, (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+    indices = cv2.dnn.NMSBoxes(boxes, confidences, 0.5, 0.4)
+
+    for i in indices:
+        box = boxes[i]
+        x,y,w,h = box
+        cv2.rectangle(frame, (x,y), (x+w, y+h), (0,255,0), 2)
+        label = f"{classes[class_id]}: {confidences[i]:.2f}"
+        color = (0,255,0)
+        cv2.putText(frame, label, (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+            # Draw rectangle and label
+            # cv2.rectangle(frame, (x,y), (x+w, y+h), color, 2)
+            
 
     # Display output
     cv2.imshow("Object Detection", frame)
