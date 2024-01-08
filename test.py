@@ -35,7 +35,7 @@ while True:
             scores = obj[5:]
             class_id = np.argmax(scores)
             confidence = scores[class_id]
-            if confidence > 0.5:
+            if confidence > 0.5 and classes[class_id] in ["backpack", "handbag", "suitcase"]:
                 center_x = int(obj[0] * width)
                 center_y = int(obj[1] * height)
                 w = int(obj[2] * width)
@@ -53,9 +53,9 @@ while True:
         box = boxes[i]
         x,y,w,h = box
         cv2.rectangle(frame, (x,y), (x+w, y+h), (0,255,0), 2)
-        label = f"{classes[class_id]}: {confidences[i]:.2f}"
-        color = (0,255,0)
-        cv2.putText(frame, label, (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+        # label = f"{classes[class_id]}: {confidences[i]:.2f}"
+        # color = (0,255,0)
+        # cv2.putText(frame, label, (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
             # Draw rectangle and label
             # cv2.rectangle(frame, (x,y), (x+w, y+h), color, 2)
             
