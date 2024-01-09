@@ -1,10 +1,12 @@
+import datetime
 import cv2
 import pygame
 from pygame.locals import *
 from tkinter import Tk, filedialog
 from PIL import Image
 from io import BytesIO
-
+import numpy as np
+from centroidtracker import CentroidTracker
 class BagAlertApp:
     def __init__(self):
         self.resolution = (1200, 700)
@@ -56,8 +58,124 @@ class BagAlertApp:
         self.display_video(cap)
 
     def show_live_feed(self):
-        cap = cv2.VideoCapture(0)
-        self.display_video(cap)
+        net = cv2.dnn.readNet("data/yolov4.weights", "data/yolov4.cfg")
+        layer_names = net.getUnconnectedOutLayersNames()
+
+        # Load COCO class names
+        with open("data/coco.names", "r") as f:
+            classes = [line.strip() for line in f.readlines()]
+
+        # Initialize webcam
+        file_path = filedialog.askopenfilename(filetypes=[("MP4 files", "*.mp4")])
+        cap = cv2.VideoCapture(file_path)
+        fps_start_time = datetime.datetime.now()
+        fps = 0
+        total_frames = 0
+        # tracker = CentroidTracker(maxDisappeared=80, maxDistance=90)
+        trackerType = "CSRT" 
+        tracker = cv2.legacy.MultiTracker.create()
+        prev_box = []
+        prev_conf = []
+        while True:
+            # Read frame from webcam/video input
+            ret, frame = cap.read()
+            if not ret:
+                continue
+            total_frames+=1
+            try:
+                success, new_bbox = tracker.update(frame)
+                if success:
+                    for i, newbox in enumerate(new_bbox):
+                        print(newbox)
+                        boxes.append(newbox)
+                        confidences.append(1.0)
+            except Exception as e:
+                print(e)
+            
+            # Detect objects from frame
+            height, width, _ = frame.shape
+            blob = cv2.dnn.blobFromImage(frame, 1/255.0, (416,416), swapRB=True, crop=False)
+            net.setInput(blob)
+            detections = net.forward(layer_names)
+
+            confidences = prev_conf
+            labels = []
+            boxes = prev_box
+            # Process detections
+            for detection in detections:
+                for obj in detection:
+                    scores = obj[5:]
+                    class_id = np.argmax(scores)
+                    confidence = scores[class_id]
+                    if confidence > 0.3 and classes[class_id] in ["backpack", "handbag", "suitcase"]:
+                        center_x = int(obj[0] * width)
+                        center_y = int(obj[1] * height)
+                        w = int(obj[2] * width)
+                        h = int(obj[3] * height)
+
+                        # Rectangle coordinates
+                        x = int(center_x - w/2)
+                        y = int(center_y - h/2)
+                        boxes.append((x,y,w,h))
+                        confidences.append(float(confidence))
+
+            indices = cv2.dnn.NMSBoxes(boxes, confidences, 0.3, 0.3)
+
+            fps_end_time = datetime.datetime.now()
+            time_diff = fps_end_time - fps_start_time
+            if time_diff.seconds == 0:
+                fps = 0.0
+            else:
+                fps = (total_frames / time_diff.seconds)
+
+            fps_text = "FPS: {:.2f}".format(fps)
+            tfps_text = "Total Frames: {:.2f}".format(total_frames)
+
+            cv2.putText(frame, fps_text, (5, 30), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 0, 255), 1)
+            cv2.putText(frame, tfps_text, (5, 60), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 0, 255), 1)
+
+            
+            # print(objects)
+            # for (objectId, bbox) in objects.items():
+            #     x1, y1, x2, y2 = bbox
+            #     x1 = int(x1)
+            #     y1 = int(y1)
+            #     x2 = int(x2)
+            #     y2 = int(y2)
+
+            #     cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
+            #     text = "ID: {}".format(objectId)
+            #     cv2.putText(frame, text, (x1, y1-5), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 0, 255), 1)
+            for i in indices:
+                box = boxes[i]
+                x,y,w,h = box
+                x = int(x)
+                y = int(y)
+                w = int(w)
+                h = int(h)
+                # cv2.rectangle(frame, (x,y), (x+w, y+h), (0,255,0), 2)
+                tracker.add(cv2.legacy.TrackerCSRT.create(), frame, box)
+                cv2.rectangle(frame, (x,y), (x+w, y+h), (0,255,0), 2)
+                # success, new_bbox = tracker.update(frame)
+                # if success:
+                #     new_bbox = tuple(map(int, new_bbox))
+                #     if all(coord > 0 for coord in new_bbox):
+                #         cv2.rectangle(frame, new_bbox[:2], (new_bbox[0] + new_bbox[2], new_bbox[1] + new_bbox[3]), (0, 255, 0), 2)
+                #         prev_box.append(new_bbox)
+                #         prev_conf.append(confidences[i])
+                    
+
+            # Display output
+            cv2.imshow("Object Detection", frame)
+
+
+
+            if cv2.waitKey(1) == ord('q'):
+                break
+            
+        # Release webcam and close all the windows
+        cap.release()
+        cv2.destroyAllWindows()
 
     def display_video(self, cap):
         pygame.init()
