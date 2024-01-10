@@ -2,7 +2,8 @@ from tkinter import *
 from tkinter import filedialog
 import cv2
 from PIL import Image, ImageTk
-
+import datetime
+from centroidtracker import CentroidTracker
 def main():
     root = Tk()
     root.title("CMSC 165 Project")
@@ -77,7 +78,8 @@ class AppGUI():
 
         # Initialize webcam
         file_path = filedialog.askopenfilename(filetypes=[("MP4 files", "*.mp4")])
-        cap = cv2.VideoCapture(file_path)
+        self.video_source = file_path
+        self.video_capture = cv2.VideoCapture(self.video_source)
         fps_start_time = datetime.datetime.now()
         fps = 0
         total_frames = 0
