@@ -1,8 +1,10 @@
 from tkinter import *
+import tkinter.messagebox as messagebox
 from tkinter import filedialog
 import cv2
 from PIL import Image, ImageTk
 import datetime
+import threading
 
 import numpy as np
 from centroidtracker import CentroidTracker
@@ -86,7 +88,7 @@ class AppGUI():
         fps = 0
         total_frames = 0
         # tracker = CentroidTracker(maxDisappeared=80, maxDistance=90)
-        tracker = CentroidTracker(maxDisappeared=80, maxDistance=90)
+        tracker = CentroidTracker(maxDisappeared=5, maxDistance=90)
         stationary_times = {}
         previous_position = {}
         prev_box = []
@@ -116,7 +118,6 @@ class AppGUI():
                 blob = cv2.dnn.blobFromImage(frame, 1/255.0, (416,416), swapRB=True, crop=False)
                 net.setInput(blob)
                 detections = net.forward(layer_names)
-
                 confidences = []
                 labels = []
                 boxes = []
@@ -149,9 +150,11 @@ class AppGUI():
 
                 fps_text = "FPS: {:.2f}".format(fps)
                 tfps_text = "Total Frames: {:.2f}".format(total_frames)
+                dangerous_text = "Dangerous Objects: {}".format(len([obj for obj in stationary_times if stationary_times[obj] > 10]))
 
                 cv2.putText(frame, fps_text, (5, 30), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 0, 255), 1)
                 cv2.putText(frame, tfps_text, (5, 60), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 0, 255), 1)
+                cv2.putText(frame, dangerous_text, (5, 90), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 0, 255), 1)
 
                 bboxes = []
                 for i in indices:
@@ -186,16 +189,15 @@ class AppGUI():
                             print(objectId)
                             print("STATIONARY")
                             print(stationary_times[objectId])
-                            cv2.rectangle(frame, (x1,y1), (x1+x2, y1+y2), (0,0,255), 2)
-                            text = "ID: {}".format(objectId)
-                            cv2.putText(frame, text, (x1, y1-5), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 0, 255), 1)
+                            cv2.rectangle(frame, (x1,y1), (x1+x2, y1+y2), (0,0,255), 4)
+                            text = "DANGER: {}".format(objectId)
+                            cv2.putText(frame, text, (x1, y1-5), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 0, 255), 2)
                         else:
                             print("NOT STATIONARY")
                             print(stationary_times[objectId])
                             cv2.rectangle(frame, (x1,y1), (x1+x2, y1+y2), (0,255,0), 2)
                             text = "ID: {}".format(objectId)
                             cv2.putText(frame, text, (x1, y1-5), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 255, 0), 1)
-
                    
 
                 self.display_frame(frame)
