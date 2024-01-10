@@ -18,7 +18,7 @@ class AppGUI():
         self.appFrame.pack()
 
         self.video_source = None
-        self.video_capture = cv2.VideoCapture(self.video_source)
+        self.video_capture = None
         self.timeTreshold = 0
 
         self.playing = False
@@ -30,6 +30,13 @@ class AppGUI():
         self.createVideoMenu()
         self.createVideoArea()
         self.createMenu()
+        root.protocol("WM_DELETE_WINDOW", lambda: [self.on_window_close(),  root.destroy(), root.quit()])
+
+    def on_window_close(self):
+        # Close the window
+        if self.video_capture == None:
+            return
+        self.video_capture.release()
 
     def createVideoMenu(self):
         self.videoMenu = Frame(self.appFrame)
@@ -47,8 +54,12 @@ class AppGUI():
 
     def createVideoArea(self):
         
-        self.videoArea = Canvas(self.appFrame, width=self.video_capture.get(3), height=self.video_capture.get(4))
+        self.videoArea = Canvas(self.appFrame, width=600, height=600)
         self.videoArea.pack()
+
+    def updateVideoArea(self):
+        self.videoArea["width"] = self.video_capture.get(3)
+        self.videoArea["height"] = self.video_capture.get(4)
 
     def createMenu(self):
 
@@ -73,7 +84,7 @@ class AppGUI():
         self.setSecond = Spinbox(self.setTimeFrame, from_=0, to=300)
         self.setSecond.grid(row=1, column=2)
 
-        self.setTimeBtn = Button(self.appFrame, text="Set Time", font=("Helvetica", 15), height=1, width=10, bg="silver", command=lambda: [self.set_time(), self.enable_buttons()])
+        self.setTimeBtn = Button(self.appFrame, text="Set Threshold", font=("Helvetica", 15), height=1, width=10, bg="silver", command=lambda: [self.set_time(), self.enable_buttons()])
         self.setTimeBtn.pack()
 
     def set_time(self):
@@ -105,6 +116,7 @@ class AppGUI():
         file_path = filedialog.askopenfilename(filetypes=[("MP4 files", "*.mp4")])
         self.video_source = file_path
         self.video_capture = cv2.VideoCapture(self.video_source)
+        self.updateVideoArea()
         fps_start_time = datetime.datetime.now()
         fps = 0
         total_frames = 0
@@ -122,7 +134,7 @@ class AppGUI():
             while self.playing:
                 ret, frame = self.video_capture.read()
                 if not ret:
-                    continue
+                    break
                 total_frames+=1
                 # try:
                 #     success, new_bbox = tracker.update(frame)
@@ -223,6 +235,7 @@ class AppGUI():
                 self.display_frame(frame)
                 self.appFrame.update_idletasks()
                 self.appFrame.update()
+            self.video_capture.release()
 
     def stop_video(self):
         if not self.playing:
