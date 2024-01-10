@@ -87,6 +87,8 @@ class AppGUI():
         total_frames = 0
         # tracker = CentroidTracker(maxDisappeared=80, maxDistance=90)
         tracker = CentroidTracker(maxDisappeared=80, maxDistance=90)
+        stationary_times = {}
+        previous_position = {}
         prev_box = []
         prev_conf = []
 
@@ -162,10 +164,39 @@ class AppGUI():
                     y1 = int(y1)
                     x2 = int(x2)
                     y2 = int(y2)
+                    if objectId in previous_position:
+                        prevx1, prevy1, prevx2, prevy2 = previous_position[objectId]
+                        prev_centerx = (prevx1 + prevx2) / 2
+                        prev_centery = (prevy1 + prevy2) / 2
+                        cur_centerx = (x1 + x2) / 2
+                        cur_centery = (y1 + y2) / 2
+                        distance = np.sqrt((prev_centerx - cur_centerx)**2 + (prev_centery - cur_centery)**2)
+                        if distance < 40:
+                            if objectId in stationary_times:
+                                stationary_times[objectId] += 1
+                            else:
+                                stationary_times[objectId] = 1
+                    else:
+                        previous_position[objectId] = (x1, y1, x2, y2)
+                        stationary_times[objectId] = 1
 
-                    cv2.rectangle(frame, (x1,y1), (x1+x2, y1+y2), (0,255,0), 2)
-                    text = "ID: {}".format(objectId)
-                    cv2.putText(frame, text, (x1, y1-5), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 0, 255), 1)
+                    if objectId in stationary_times:
+                        if stationary_times[objectId] > 10:
+                            print("ALERT")
+                            print(objectId)
+                            print("STATIONARY")
+                            print(stationary_times[objectId])
+                            cv2.rectangle(frame, (x1,y1), (x1+x2, y1+y2), (0,0,255), 2)
+                            text = "ID: {}".format(objectId)
+                            cv2.putText(frame, text, (x1, y1-5), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 0, 255), 1)
+                        else:
+                            print("NOT STATIONARY")
+                            print(stationary_times[objectId])
+                            cv2.rectangle(frame, (x1,y1), (x1+x2, y1+y2), (0,255,0), 2)
+                            text = "ID: {}".format(objectId)
+                            cv2.putText(frame, text, (x1, y1-5), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 255, 0), 1)
+
+                   
 
                 self.display_frame(frame)
                 self.appFrame.update_idletasks()
