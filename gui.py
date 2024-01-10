@@ -20,58 +20,96 @@ class AppGUI():
         self.appFrame.pack()
 
         self.video_source = None
-        self.video_capture = cv2.VideoCapture(self.video_source)
+        # Init video_capture to None to avoid errors 
+        self.video_capture = None
+        self.timeTreshold = 0
 
+        self.playing = False
+
+        self.hour = 0
+        self.distance = 0
+        self.frame = 0
+        
         self.createVideoMenu()
         self.createVideoArea()
         self.createMenu()
+        # Added a protocol to release video capture after
+        root.protocol("WM_DELETE_WINDOW", lambda: [self.on_window_close(),  root.destroy(), root.quit()])
 
-        self.playing = False
+    def on_window_close(self):
+        # Close the window
+        if self.video_capture == None:
+            return
+        self.video_capture.release()
 
     def createVideoMenu(self):
         self.videoMenu = Frame(self.appFrame)
         self.videoMenu.pack()
 
-        self.openVideoBtn = Button(self.videoMenu, text="Open Video", font=("Helvetica", 15), height=1, width=10, bg="silver", command=self.openVideo)
+
+        self.openVideoBtn = Button(self.videoMenu, text="Open Video", font=("Helvetica", 15), height=1, width=10, bg="silver", command=self.play_video, state="disabled")
         self.openVideoBtn.grid(row=0, column=0)
 
-        self.playVideoBtn = Button(self.videoMenu, text="Play", font=("Helvetica", 15), height=1, width=10, bg="silver", command=self.play_video)
+        self.playVideoBtn = Button(self.videoMenu, text="Play", font=("Helvetica", 15), height=1, width=10, bg="silver", command=self.continue_video, state="disabled")
         self.playVideoBtn.grid(row=0, column=1)
 
-        self.pauseVideoBtn = Button(self.videoMenu, text="Pause", font=("Helvetica", 15), height=1, width=10, bg="silver", command=self.stop_video)
+        self.pauseVideoBtn = Button(self.videoMenu, text="Pause", font=("Helvetica", 15), height=1, width=10, bg="silver", command=self.stop_video, state="disabled")
         self.pauseVideoBtn.grid(row=0, column=2)
 
     def createVideoArea(self):
         
-        self.videoArea = Canvas(self.appFrame, width=self.video_capture.get(3), height=self.video_capture.get(4))
+        self.videoArea = Canvas(self.appFrame, width=600, height=600)
         self.videoArea.pack()
+
+    def updateVideoArea(self):
+        self.videoArea["width"] = self.video_capture.get(3)
+        self.videoArea["height"] = self.video_capture.get(4)
 
     def createMenu(self):
 
         self.setTimeFrame = Frame(self.appFrame)
         self.setTimeFrame.pack()
+        
+        
+        # self.hourLabel = Label(self.setTimeFrame, font =("Helvetica", 15), text = "Hour")
+        # self.hourLabel.grid(row=0, column=0)
 
-        self.hourLabel = Label(self.setTimeFrame, font =("Helvetica", 15), text = "Hour")
-        self.hourLabel.grid(row=0, column=0)
+        # self.setHour = Spinbox(self.setTimeFrame, from_=0, to=24)
+        # self.setHour.grid(row=1, column=0)
 
-        self.setHour = Spinbox(self.setTimeFrame, from_=0, to=24)
-        self.setHour.grid(row=1, column=0)
+        # Instead of time I added frame and dist
+        self.minuteLabel = Label(self.setTimeFrame, font =("Helvetica", 15), text = "Distance")
+        self.minuteLabel.grid(row=0, column=0)
 
-        self.minuteLabel = Label(self.setTimeFrame, font =("Helvetica", 15), text = "Minute")
-        self.minuteLabel.grid(row=0, column=1)
+        self.setMinute = Spinbox(self.setTimeFrame, from_=0, to=300)
+        self.setMinute.grid(row=1, column=0)
 
-        self.setMinute = Spinbox(self.setTimeFrame, from_=0, to=59)
-        self.setMinute.grid(row=1, column=1)
-
-        self.secondLabel = Label(self.setTimeFrame, font =("Helvetica", 15), text = "Second")
+        self.secondLabel = Label(self.setTimeFrame, font =("Helvetica", 15), text = "Frames")
         self.secondLabel.grid(row=0, column=2)
 
-        self.setSecond = Spinbox(self.setTimeFrame, from_=0, to=59)
+        self.setSecond = Spinbox(self.setTimeFrame, from_=0, to=300)
         self.setSecond.grid(row=1, column=2)
 
-        self.setTimeBtn = Button(self.appFrame, text="Set Time", font=("Helvetica", 15), height=1, width=10, bg="silver")
+        self.setTimeBtn = Button(self.appFrame, text="Set Threshold", font=("Helvetica", 15), height=1, width=10, bg="silver", command=lambda: [self.set_time(), self.enable_buttons()])
         self.setTimeBtn.pack()
 
+    def set_time(self):
+        # self.hour = int(self.setHour.get())
+        self.distance = int(self.setMinute.get())
+        self.frame = int(self.setSecond.get())
+
+        print(f"Setting distance threshold to {self.distance} and frame threshold to {self.frame}.")
+
+    def enable_buttons(self):
+        if self.distance and self.frame:
+            state = "normal"
+        else:
+            state = "disabled"
+
+        self.openVideoBtn["state"] = state
+        self.playVideoBtn["state"] = state
+        self.pauseVideoBtn["state"] = state
+    
     def play_video(self):
         net = cv2.dnn.readNet("data/yolov4.weights", "data/yolov4.cfg")
         layer_names = net.getUnconnectedOutLayersNames()
@@ -84,6 +122,7 @@ class AppGUI():
         file_path = filedialog.askopenfilename(filetypes=[("MP4 files", "*.mp4")])
         self.video_source = file_path
         self.video_capture = cv2.VideoCapture(self.video_source)
+        self.updateVideoArea()
         fps_start_time = datetime.datetime.now()
         fps = 0
         total_frames = 0
@@ -101,7 +140,7 @@ class AppGUI():
             while self.playing:
                 ret, frame = self.video_capture.read()
                 if not ret:
-                    continue
+                    break
                 total_frames+=1
                 # try:
                 #     success, new_bbox = tracker.update(frame)
@@ -159,7 +198,6 @@ class AppGUI():
                 bboxes = []
                 for i in indices:
                     bboxes.append(boxes[i])
-                print(bboxes)
                 objects = tracker.update(bboxes)
                 for (objectId, bbox) in objects.items():
                     x1, y1, x2, y2 = bbox
@@ -174,7 +212,8 @@ class AppGUI():
                         cur_centerx = (x1 + x2) / 2
                         cur_centery = (y1 + y2) / 2
                         distance = np.sqrt((prev_centerx - cur_centerx)**2 + (prev_centery - cur_centery)**2)
-                        if distance < 40:
+                        # This is the same code, just using a user input threshold
+                        if distance < self.distance:
                             if objectId in stationary_times:
                                 stationary_times[objectId] += 1
                             else:
@@ -184,7 +223,8 @@ class AppGUI():
                         stationary_times[objectId] = 1
 
                     if objectId in stationary_times:
-                        if stationary_times[objectId] > 10:
+                        # This is the same code, just using a user input threshold
+                        if stationary_times[objectId] > self.frame:
                             print("ALERT")
                             print(objectId)
                             print("STATIONARY")
@@ -203,9 +243,19 @@ class AppGUI():
                 self.display_frame(frame)
                 self.appFrame.update_idletasks()
                 self.appFrame.update()
+            self.video_capture.release()
 
     def stop_video(self):
+        if not self.playing:
+            return
+        
         self.playing = False
+
+    def continue_video(self):
+        if self.playing:
+            return
+        
+        self.playing = True
 
 
     def openVideo(self):
