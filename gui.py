@@ -3,6 +3,8 @@ from tkinter import filedialog
 import cv2
 from PIL import Image, ImageTk
 import datetime
+
+import numpy as np
 from centroidtracker import CentroidTracker
 def main():
     root = Tk()
@@ -95,7 +97,75 @@ class AppGUI():
             while self.playing:
                 ret, frame = self.video_capture.read()
                 if not ret:
-                    break
+                    continue
+                total_frames+=1
+                # try:
+                #     success, new_bbox = tracker.update(frame)
+                #     if success:
+                #         for i, newbox in enumerate(new_bbox):
+                #             print(newbox)
+                #             boxes.append(newbox)
+                #             confidences.append(1.0)
+                # except Exception as e:
+                #     print(e)
+                
+                # Detect objects from frame
+                height, width, _ = frame.shape
+                blob = cv2.dnn.blobFromImage(frame, 1/255.0, (416,416), swapRB=True, crop=False)
+                net.setInput(blob)
+                detections = net.forward(layer_names)
+
+                confidences = []
+                labels = []
+                boxes = []
+                # Process detections
+                for detection in detections:
+                    for obj in detection:
+                        scores = obj[5:]
+                        class_id = np.argmax(scores)
+                        confidence = scores[class_id]
+                        if confidence > 0.3 and classes[class_id] in ["backpack", "handbag", "suitcase"]:
+                            center_x = int(obj[0] * width)
+                            center_y = int(obj[1] * height)
+                            w = int(obj[2] * width)
+                            h = int(obj[3] * height)
+
+                            # Rectangle coordinates
+                            x = int(center_x - w/2)
+                            y = int(center_y - h/2)
+                            boxes.append((x,y,w,h))
+                            confidences.append(float(confidence))
+
+                indices = cv2.dnn.NMSBoxes(boxes, confidences, 0.3, 0.3)
+
+                fps_end_time = datetime.datetime.now()
+                time_diff = fps_end_time - fps_start_time
+                if time_diff.seconds == 0:
+                    fps = 0.0
+                else:
+                    fps = (total_frames / time_diff.seconds)
+
+                fps_text = "FPS: {:.2f}".format(fps)
+                tfps_text = "Total Frames: {:.2f}".format(total_frames)
+
+                cv2.putText(frame, fps_text, (5, 30), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 0, 255), 1)
+                cv2.putText(frame, tfps_text, (5, 60), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 0, 255), 1)
+
+                bboxes = []
+                for i in indices:
+                    bboxes.append(boxes[i])
+                print(bboxes)
+                objects = tracker.update(bboxes)
+                for (objectId, bbox) in objects.items():
+                    x1, y1, x2, y2 = bbox
+                    x1 = int(x1)
+                    y1 = int(y1)
+                    x2 = int(x2)
+                    y2 = int(y2)
+
+                    cv2.rectangle(frame, (x1,y1), (x1+x2, y1+y2), (0,255,0), 2)
+                    text = "ID: {}".format(objectId)
+                    cv2.putText(frame, text, (x1, y1-5), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 0, 255), 1)
 
                 self.display_frame(frame)
                 self.appFrame.update_idletasks()
