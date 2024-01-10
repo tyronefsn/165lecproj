@@ -189,7 +189,7 @@ class AppGUI():
 
                 fps_text = "FPS: {:.2f}".format(fps)
                 tfps_text = "Total Frames: {:.2f}".format(total_frames)
-                dangerous_text = "Dangerous Objects: {}".format(len([obj for obj in stationary_times if stationary_times[obj] > 10]))
+                dangerous_text = "Dangerous Objects: {}".format(len([obj for obj in stationary_times if stationary_times[obj] > self.frame]))
 
                 cv2.putText(frame, fps_text, (5, 30), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 0, 255), 1)
                 cv2.putText(frame, tfps_text, (5, 60), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 0, 255), 1)
@@ -211,9 +211,9 @@ class AppGUI():
                         prev_centery = (prevy1 + prevy2) / 2
                         cur_centerx = (x1 + x2) / 2
                         cur_centery = (y1 + y2) / 2
-                        distance = np.sqrt((prev_centerx - cur_centerx)**2 + (prev_centery - cur_centery)**2)
+                        curdistance = np.sqrt((prev_centerx - cur_centerx)**2 + (prev_centery - cur_centery)**2)
                         # This is the same code, just using a user input threshold
-                        if distance < self.distance:
+                        if curdistance < self.distance:
                             if objectId in stationary_times:
                                 stationary_times[objectId] += 1
                             else:
@@ -239,6 +239,9 @@ class AppGUI():
                             text = "ID: {}".format(objectId)
                             cv2.putText(frame, text, (x1, y1-5), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 255, 0), 1)
                    
+                for items in stationary_times:
+                    if items not in [obj for (obj, bbox) in objects.items()]:
+                        stationary_times[items] = 0
 
                 self.display_frame(frame)
                 self.appFrame.update_idletasks()
