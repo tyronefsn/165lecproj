@@ -18,6 +18,7 @@ class AppGUI():
         self.appFrame.pack()
 
         self.video_source = None
+        # Init video_capture to None to avoid errors 
         self.video_capture = None
         self.timeTreshold = 0
 
@@ -26,10 +27,11 @@ class AppGUI():
         self.hour = 0
         self.distance = 0
         self.frame = 0
-
+        
         self.createVideoMenu()
         self.createVideoArea()
         self.createMenu()
+        # Added a protocol to release video capture after
         root.protocol("WM_DELETE_WINDOW", lambda: [self.on_window_close(),  root.destroy(), root.quit()])
 
     def on_window_close(self):
@@ -65,13 +67,15 @@ class AppGUI():
 
         self.setTimeFrame = Frame(self.appFrame)
         self.setTimeFrame.pack()
-
+        
+        
         # self.hourLabel = Label(self.setTimeFrame, font =("Helvetica", 15), text = "Hour")
         # self.hourLabel.grid(row=0, column=0)
 
         # self.setHour = Spinbox(self.setTimeFrame, from_=0, to=24)
         # self.setHour.grid(row=1, column=0)
 
+        # Instead of time I added frame and dist
         self.minuteLabel = Label(self.setTimeFrame, font =("Helvetica", 15), text = "Distance")
         self.minuteLabel.grid(row=0, column=0)
 
@@ -205,6 +209,7 @@ class AppGUI():
                         cur_centerx = (x1 + x2) / 2
                         cur_centery = (y1 + y2) / 2
                         distance = np.sqrt((prev_centerx - cur_centerx)**2 + (prev_centery - cur_centery)**2)
+                        # This is the same code, just using a user input threshold
                         if distance < self.distance:
                             if objectId in stationary_times:
                                 stationary_times[objectId] += 1
@@ -215,6 +220,7 @@ class AppGUI():
                         stationary_times[objectId] = 1
 
                     if objectId in stationary_times:
+                        # This is the same code, just using a user input threshold
                         if stationary_times[objectId] > self.frame:
                             print("ALERT")
                             print(objectId)
